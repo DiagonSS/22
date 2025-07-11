@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gardener CRM</title>
+  <!-- PWA Metadata -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- FullCalendar -->
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.js"></script>
+  <style>
+    #calendar {
+      max-width: 900px;
+      margin: 20px auto;
+    }
+    .loading::after {
+      content: 'Loading...';
+      color: #6b7280;
+      margin-left: 8px;
+    }
+    .schedule-table th, .schedule-table td {
+      border: 1px solid #e5e7eb;
+      padding: 8px;
+      text-align: left;
+    }
+    .schedule-table tr:nth-child(even) {
+      background-color: #f9fafb;
+    }
+    .schedule-table tr:hover {
+      background-color: #f3f4f6;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans">
+  <div class="container mx-auto p-6 max-w-4xl">
+    <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Gardener CRM</h1>
+
+    <!-- Add Client Form -->
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+      <h2 class="text-xl font-semibold mb-4 text-gray-700">Add New Client</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="clientName" class="block text-sm font-medium text-gray-600">Name *</label>
+          <input id="clientName" type="text" placeholder="Client Name" class="mt-1 border p-2 rounded w-full focus:ring-2 focus:ring-green-400" required>
+        </div>
+        <div>
+          <label for="clientPhone" class="block text-sm font-medium text-gray-600">Phone (optional)</label>
+          <input id="clientPhone" type="text" placeholder="Phone" class="mt-1 border p-2 rounded w-full focus:ring-2 focus:ring-green-400">
+        </div>
+        <div>
+          <label for="clientEmail" class="block text-sm font-medium text-gray-600">Email (optional)</label>
+          <input id="clientEmail" type="email" placeholder="Email" class="mt-1 border p-2 rounded w-full focus:ring-2 focus:ring-green-400">
+        </div>
+        <div>
+          <label for="clientAddress" class="block text-sm font-medium text-gray-600">Address *</label>
+          <input id="clientAddress" type="text" placeholder="Address" class="mt-1 border p-2 rounded w-full focus:ring-2 focus:ring-green-400" required>
+        </div>
+        <div class="sm:col-span-2">
+          <label for="clientNotes" class="block text-sm font-medium text-gray-600">Notes (optional)</label>
+          <textarea id="clientNotes" placeholder="Notes" class="mt-1 border p-2 rounded w-full focus:ring-2 focus:ring-green-400"></textarea>
+        </div>
+        <div>
+          <label for="clientNextVisit" class="block text-sm font-medium text-gray-600">Next Visit (optional)</label>
+          <input id="clientNextVisit" type="date" class="mt-1 border p-2 rounded w-full focus:ring-2 focus:ring-green-400">
+        </div>
+        <div class="sm:col-span-2">
+          <button id="addClientBtn" onclick="addClient()" class="w-full bg-green-500 text-white p-2 rounded hover:bg-green-600 transition">Add Client</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Schedule Job Form -->
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+      <h2 class="text-xl font-semibold mb-4 text-gray-700">Schedule Job</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="jobClient" class="block text-sm font-medium text-gray-600">Client *</label>
+          <select id="jobClient" class="mt-1 border p-2 rounded w-full focus:ring-2 focus:ring-blue-400" required>
+            <option value="">Select Client</option>
+          </select>
+        </div>
+        <div>
+          <label for="jobDescription" class="block text-sm font-medium text-gray-600">Description *</label>
+          <input id="jobDescription" type="text" placeholder="e.g., Lawn Mowing" class="mt-1 border p-2 rounded w-full focus:ring-2 focus:ring-blue-400" required>
+        </div>
+        <div>
+          <label for="jobPrice" class="block text-sm font-medium text-gray-600">Price (optional)</label>
+          <input id="jobPrice" type="number" step="0.01" placeholder="Price" class="mt-1 border p-2 rounded w-full focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div>
+          <label for="jobPhotoUrl" class="block text-sm font-medium text-gray-600">Photo URL (optional)</label>
+          <input id="jobPhotoUrl" type="text" placeholder="Photo URL" class="mt-1 border p-2 rounded w-full focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div>
+          <label for="jobDate" class="block text-sm font-medium text-gray-600">Date *</label>
+          <input id="jobDate" type="date" class="mt-1 border p-2 rounded w-full focus:ring-2 focus:ring-blue-400" required>
+        </div>
+        <div class="sm:col-span-2">
+          <button id="scheduleJobBtn" onclick="scheduleJob()" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition">Schedule Job</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calendar -->
+    <div id="calendar" class="bg-white p-4 rounded-lg shadow-md mb-8"></div>
+
+    <!-- Schedule Table -->
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+      <h2 class="text-xl font-semibold mb-4 text-gray-700">Job Schedule</h2>
+      <table class="schedule-table w-full">
+        <thead>
+          <tr class="bg-gray-200">
+            <th>Date</th>
+            <th>Client</th>
+            <th>Description</th>
+            <th>Price</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="scheduleTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Job Details Modal -->
+    <div id="jobModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+      <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
+        <h2 class="text-xl font-semibold mb-6 text-gray-700">Job Details</h2>
+        <p id="modalJobDetails" class="mb-6 text-gray-600"></p>
+        <div class="flex justify-end space-x-2">
+          <button onclick="rescheduleJob()" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 transition">Reschedule</button>
+          <button onclick="postponeJob()" class="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 transition">Postpone</button>
+          <button onclick="cancelJob()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition">Cancel</button>
+          <button onclick="closeModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initialize Supabase
+    const supabase = supabase.createClient('https://kuxbbvkmribqlyfwqerl.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1eGJidmttcmlicWx5ZndxZXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwODEzODcsImV4cCI6MjA2NzY1NzM4N30.ZWJyDolbW_Ma2txriX0CGS63bc8bss9YTTGq0Kcfex8');
+
+    let selectedJobId = null;
+
+    // Initialize Calendar
+    document.addEventListener('DOMContentLoaded', async () => {
+      const calendarEl = document.getElementById('calendar');
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        events: await fetchJobs(),
+        eventClick: function(info) {
+          selectedJobId = info.event.id;
+          const job = info.event.extendedProps;
+          document.getElementById('modalJobDetails').innerHTML = `
+            <strong>Client:</strong> ${job.client_name}<br>
+            <strong>Description:</strong> ${job.description}<br>
+            <strong>Price:</strong> ${job.price ? '€' + job.price : 'N/A'}<br>
+            <strong>Date:</strong> ${info.event.start.toISOString().split('T')[0]}<br>
+            <strong>Status:</strong> ${job.status}
+          `;
+          document.getElementById('jobModal').classList.remove('hidden');
+        }
+      });
+      calendar.render();
+      await populateClients();
+      await populateScheduleTable();
+
+      // Real-time subscription for jobs
+      supabase
+        .channel('jobs')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => {
+          populateScheduleTable();
+          calendar.refetchEvents();
+        })
+        .subscribe();
+    });
+
+    // Fetch clients and populate dropdown
+    async function populateClients() {
+      const { data, error } = await supabase.from('clients').select('*');
+      if (error) {
+        console.error('Error fetching clients:', error.message, error.details);
+        alert('Failed to fetch clients: ' + error.message);
+        return;
+      }
+      const clientSelect = document.getElementById('jobClient');
+      clientSelect.innerHTML = '<option value="">Select Client</option>';
+      data.forEach(client => {
+        const option = document.createElement('option');
+        option.value = client.id;
+        option.textContent = client.name;
+        clientSelect.appendChild(option);
+      });
+    }
+
+    // Fetch jobs for calendar
+    async function fetchJobs() {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, client_id, description, price, date, status, clients(name)')
+        .eq('status', 'Scheduled');
+      if (error) {
+        console.error('Error fetching jobs:', error.message, error.details);
+        alert('Failed to fetch jobs: ' + error.message);
+        return [];
+      }
+      return data.map(job => ({
+        id: job.id,
+        title: `${job.clients.name} - ${job.description}`,
+        start: job.date,
+        backgroundColor: job.status === 'Scheduled' ? '#10B981' : job.status === 'Postponed' ? '#F59E0B' : '#EF4444',
+        extendedProps: {
+          client_name: job.clients.name,
+          description: job.description,
+          price: job.price,
+          status: job.status
+        }
+      }));
+    }
+
+    // Populate schedule table
+    async function populateScheduleTable() {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, client_id, description, price, date, status, clients(name)')
+        .order('date', { ascending: true });
+      if (error) {
+        console.error('Error fetching jobs for table:', error.message, error.details);
+        alert('Failed to fetch schedule: ' + error.message);
+        return;
+      }
+      const tableBody = document.getElementById('scheduleTableBody');
+      tableBody.innerHTML = '';
+      data.forEach(job => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${job.date}</td>
+          <td>${job.clients.name}</td>
+          <td>${job.description}</td>
+          <td>${job.price ? '€' + job.price : 'N/A'}</td>
+          <td>${job.status}</td>
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+
+    // Add client
+    async function addClient() {
+      const button = document.getElementById('addClientBtn');
+      button.disabled = true;
+      button.classList.add('loading');
+      const name = document.getElementById('clientName').value;
+      const phone = document.getElementById('clientPhone').value;
+      const email = document.getElementById('clientEmail').value;
+      const address = document.getElementById('clientAddress').value;
+      const notes = document.getElementById('clientNotes').value;
+      const next_visit = document.getElementById('clientNextVisit').value;
+      if (!name || !address) {
+        alert('Client name and address are required');
+        button.disabled = false;
+        button.classList.remove('loading');
+        return;
+      }
+      const { error } = await supabase.from('clients').insert([{ name, phone, email, address, notes, next_visit }]);
+      if (error) {
+        console.error('Error adding client:', error.message, error.details);
+        alert('Failed to add client: ' + error.message);
+        button.disabled = false;
+        button.classList.remove('loading');
+        return;
+      }
+      alert('Client added successfully');
+      document.getElementById('clientName').value = '';
+      document.getElementById('clientPhone').value = '';
+      document.getElementById('clientEmail').value = '';
+      document.getElementById('clientAddress').value = '';
+      document.getElementById('clientNotes').value = '';
+      document.getElementById('clientNextVisit').value = '';
+      button.disabled = false;
+      button.classList.remove('loading');
+      await populateClients();
+    }
+
+    // Schedule job
+    async function scheduleJob() {
+      const button = document.getElementById('scheduleJobBtn');
+      button.disabled = true;
+      button.classList.add('loading');
+      const client_id = document.getElementById('jobClient').value;
+      const description = document.getElementById('jobDescription').value;
+      const price = document.getElementById('jobPrice').value;
+      const photo_url = document.getElementById('jobPhotoUrl').value;
+      const date = document.getElementById('jobDate').value;
+      if (!client_id || !description || !date) {
+        alert('Client, description, and date are required');
+        button.disabled = false;
+        button.classList.remove('loading');
+        return;
+      }
+      const { error } = await supabase.from('jobs').insert([{ client_id, description, price: price || null, photo_url: photo_url || null, date, status: 'Scheduled' }]);
+      if (error) {
+        console.error('Error scheduling job:', error.message, error.details);
+        alert('Failed to schedule job: ' + error.message);
+        button.disabled = false;
+        button.classList.remove('loading');
+        return;
+      }
+      alert('Job scheduled successfully');
+      document.getElementById('jobClient').value = '';
+      document.getElementById('jobDescription').value = '';
+      document.getElementById('jobPrice').value = '';
+      document.getElementById('jobPhotoUrl').value = '';
+      document.getElementById('jobDate').value = '';
+      button.disabled = false;
+      button.classList.remove('loading');
+      // Calendar and table will auto-update via real-time subscription
+    }
+
+    // Reschedule job
+    async function rescheduleJob() {
+      const newDate = prompt('Enter new date (YYYY-MM-DD):');
+      if (newDate) {
+        const { error } = await supabase
+          .from('jobs')
+          .update({ date: newDate, status: 'Scheduled' })
+          .eq('id', selectedJobId);
+        if (error) {
+          console.error('Error rescheduling job:', error.message, error.details);
+          alert('Failed to reschedule job: ' + error.message);
+          return;
+        }
+        alert('Job rescheduled successfully');
+        closeModal();
+        // Calendar and table will auto-update
+      }
+    }
+
+    // Postpone job
+    async function postponeJob() {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ status: 'Postponed' })
+        .eq('id', selectedJobId);
+      if (error) {
+        console.error('Error postponing job:', error.message, error.details);
+        alert('Failed to postpone job: ' + error.message);
+        return;
+      }
+      alert('Job postponed successfully');
+      closeModal();
+      // Calendar and table will auto-update
+    }
+
+    // Cancel job
+    async function cancelJob() {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ status: 'Cancelled' })
+        .eq('id', selectedJobId);
+      if (error) {
+        console.error('Error cancelling job:', error.message, error.details);
+        alert('Failed to cancel job: ' + error.message);
+        return;
+      }
+      alert('Job cancelled successfully');
+      closeModal();
+      // Calendar and table will auto-update
+    }
+
+    // Close modal
+    function closeModal() {
+      document.getElementById('jobModal').classList.add('hidden');
+      selectedJobId = null;
+    }
+  </script>
+</body>
+</html>
